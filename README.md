@@ -21,5 +21,5 @@ license: Apache License 2.0
 ---
 #### Clone with HTTP
 ```bash
- git clone https://www.modelscope.cn/studios/kawaii520/Smart_Food.git
+git clone http://www.modelscope.cn/studios/kawaii520/smart_fridge_v2.git
 ```
