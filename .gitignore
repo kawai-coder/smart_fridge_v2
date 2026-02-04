@@ -1,0 +1,7 @@
+# python
+__pycache__/
+*.pyc
+
+# data
+data/smart_fridge.db
+data/uploads/
