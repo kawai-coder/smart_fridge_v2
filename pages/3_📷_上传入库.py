@@ -166,6 +166,8 @@ if "last_preview_bytes" not in st.session_state:
     st.session_state.last_preview_bytes = None
 if "last_preview_name" not in st.session_state:
     st.session_state.last_preview_name = None
+if "last_ingest_done" not in st.session_state:
+    st.session_state.last_ingest_done = False
 
 
 # ----------------------------
@@ -219,6 +221,7 @@ def _reset_workflow() -> None:
     st.session_state.last_meta = {}
     st.session_state.last_preview_bytes = None
     st.session_state.last_preview_name = None
+    st.session_state.last_ingest_done = False
 
 
 # ----------------------------
@@ -281,6 +284,7 @@ with top_right:
     md_html('<div class="card"><div class="card-title">🧭 操作指引 <span class="muted">三步完成入库</span></div>')
     step_done_1 = bool(st.session_state.last_preview_bytes)
     step_done_2 = bool(st.session_state.last_detections)
+    step_done_3 = bool(st.session_state.last_ingest_done)
 
     def _badge(done: bool, text: str) -> str:
         cls = "badge green" if done else "badge"
@@ -299,7 +303,7 @@ with top_right:
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div style="font-weight:800;color:rgba(17,24,39,.92);">3) 修改并确认入库</div>
-            <span class="badge">待完成</span>
+            {_badge(step_done_3, '已完成' if step_done_3 else '待完成')}
           </div>
         </div>
         <div class="hr"></div>
@@ -315,7 +319,7 @@ with top_right:
 main_left, main_right = st.columns([2.2, 1], gap="large")
 
 with main_left:
-    md_html('<div class="card"><div class="card-title">📤 上传图片 <span class="muted">支持 PNG / JPG / JPEG</span></div>')
+    md_html('<div class="card"><div class="card-title">Step 1 · 📤 上传图片 <span class="muted">支持 PNG / JPG / JPEG</span></div>')
     uploaded = st.file_uploader("上传冰箱照片", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
 
     btn1, btn2, btn3 = st.columns([1.1, 1.1, 1], gap="small")
@@ -398,7 +402,7 @@ with main_left:
     # Detection results editor
     if st.session_state.last_detections:
         md_html(
-            '<div class="card" style="margin-top:16px;"><div class="card-title">🧾 识别结果（可编辑） <span class="muted">修改后再确认入库</span></div>'
+            '<div class="card" style="margin-top:16px;"><div class="card-title">Step 2 · 🧾 识别结果（可编辑） <span class="muted">修改后再确认入库</span></div>'
         )
         det_df = pd.DataFrame(st.session_state.last_detections)
 
@@ -431,7 +435,7 @@ with main_left:
 
         try:
             display_df["置信度"] = display_df["置信度"].apply(
-                lambda x: round(float(x), 2) if x is not None else None
+                lambda x: round(float(x) * 100, 0) if x is not None and float(x) <= 1 else round(float(x), 0)
             )
         except Exception:
             pass
@@ -440,11 +444,20 @@ with main_left:
             display_df,
             num_rows="dynamic",
             disabled=["item_id", "置信度"],
+            column_config={
+                "置信度": st.column_config.ProgressColumn(
+                    "置信度",
+                    min_value=0,
+                    max_value=100,
+                    format="%d%%",
+                    help="置信度低于 50% 建议人工确认",
+                )
+            },
         )
         md_html("</div>")
 
 with main_right:
-    md_html('<div class="card"><div class="card-title">📌 入库摘要 <span class="muted">确认前最后检查</span></div>')
+    md_html('<div class="card"><div class="card-title">Step 3 · 📌 入库摘要 <span class="muted">确认前最后检查</span></div>')
     summ = _summary_from_detections(st.session_state.last_detections)
     md_html(
         f"""
@@ -467,9 +480,7 @@ with main_right:
     )
 
     confirm_disabled = not bool(st.session_state.last_detections)
-    confirm = st.button(
-        "✅ 确认入库", type="primary", disabled=confirm_disabled
-    )
+    confirm = st.button("✅ 确认入库", type="primary", disabled=confirm_disabled)
     if confirm:
         batches: List[Dict[str, Any]] = []
         for _, row in edited_df.iterrows():
@@ -491,6 +502,7 @@ with main_right:
         st.toast("库存已更新", icon="📦")
         st.page_link("pages/2_📦_库存.py", label="前往库存查看", icon="📦")
         _reset_workflow()
+        st.session_state.last_ingest_done = True
 
     md_html(
         """
@@ -500,6 +512,20 @@ with main_right:
         </div>
         """
     )
+
+    if st.session_state.last_ingest_done:
+        md_html(
+            """
+            <div class="card" style="margin-top:16px;">
+              <div class="card-title">下一步建议</div>
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <a href="/pages/2_📦_库存.py">📦 去库存查看更新</a>
+                <a href="/pages/4_🍽️_菜单.py">🍽️ 去生成菜单</a>
+                <a href="/pages/5_🧾_购物清单.py">🧾 去查看购物清单</a>
+              </div>
+            </div>
+            """
+        )
 
 # Bottom hint
 if not st.session_state.last_preview_bytes and not st.session_state.last_detections:

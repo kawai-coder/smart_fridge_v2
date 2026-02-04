@@ -284,133 +284,316 @@ if expiring_data:
     left, right = st.columns([2.2, 1], gap="large")
 
     with left:
-        st.markdown("<div class='card'><div class='card-title'>🥗 食材生命体征 <span class='muted'>按临期聚类 · 可拖拽 · 可点击</span></div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='card'><div class='card-title'>🥗 食材生命体征 <span class='muted'>聚类 / 自由漂浮 · 三向联动</span></div>",
+            unsafe_allow_html=True,
+        )
         html = """
-        <div id="bubble-wrap" style="width:100%; height:360px; border-radius:18px; background:rgba(255,255,255,.66); border:1px solid rgba(16,24,40,.08); position:relative; overflow:hidden;"></div>
+        <div id="life-root" class="life-shell">
+          <div class="life-header">
+            <div class="life-title">
+              <div class="life-title-main">食材生命体征</div>
+              <div class="life-title-sub">气泡 · 列表 · 详情三向联动</div>
+            </div>
+            <div class="segmented" role="tablist" aria-label="layout mode">
+              <button class="seg-btn" data-mode="cluster">聚类</button>
+              <button class="seg-btn" data-mode="float">自由漂浮</button>
+            </div>
+          </div>
+          <div class="life-body">
+            <div class="life-canvas">
+              <div id="bubble-wrap"></div>
+            </div>
+            <div class="life-panel">
+              <div class="panel-search">
+                <input id="life-search" placeholder="搜索食材..." />
+              </div>
+              <div class="panel-filters">
+                <button class="chip-btn" data-filter="all">全部</button>
+                <button class="chip-btn" data-filter="urgent">紧急</button>
+                <button class="chip-btn" data-filter="soon">临期</button>
+                <button class="chip-btn" data-filter="fresh">新鲜</button>
+              </div>
+              <div id="life-list" class="life-list"></div>
+              <div id="life-detail" class="life-detail">
+                <div class="detail-title">点击一个泡泡</div>
+                <div class="detail-meta">查看保质期/数量/建议操作</div>
+                <div class="detail-actions">
+                  <button class="btn ghost" data-action="copy">📋 复制食材名</button>
+                  <button class="btn ghost" data-action="pin">⭐ 标记优先消耗</button>
+                  <button class="btn primary" data-action="menu">🍽️ 建议做菜</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <style>
-        :root{ --r-lg:18px; --r-md:14px; --r-sm:10px; --shadow-1:0 12px 28px rgba(16,24,40,.08); --shadow-2:0 18px 40px rgba(16,24,40,.14); --border: rgba(16,24,40,.08); }
-        .tip {
-            position:absolute; pointer-events:none; opacity:0;
-            background: rgba(0,0,0,.78); color:#fff; padding:10px 12px;
-            border-radius:12px; font-size:12px; line-height:1.35;
-            transform: translate(-50%, -110%);
-            transition: opacity .12s ease;
-            white-space: nowrap;
+        :root{
+          --r-lg:18px; --r-md:14px; --r-sm:10px;
+          --shadow-1:0 12px 28px rgba(16,24,40,.08);
+          --shadow-2:0 18px 40px rgba(16,24,40,.14);
+          --border: rgba(16,24,40,.08);
+          --text: rgba(17,24,39,.92);
+          --text-2: rgba(17,24,39,.72);
+          --muted: rgba(17,24,39,.55);
         }
-        .drawer {
-            position:absolute; top:14px; right:14px; width:260px;
-            background: rgba(255,255,255,.92);
-            border: 1px solid var(--border);
-            border-radius: var(--r-lg);
-            box-shadow: var(--shadow-2);
-            padding: 12px 12px;
-            opacity:0; transform: translateY(6px);
-            transition: all .18s cubic-bezier(.2,.8,.2,1);
-            font-family: ui-sans-serif, system-ui;
+        .life-shell{
+          display:flex;
+          flex-direction:column;
+          gap:12px;
+          font-family: ui-sans-serif, system-ui;
         }
-        .drawer.show { opacity:1; transform: translateY(0); }
-        .drawer .title { font-weight:700; font-size:14px; margin-bottom:6px; }
-        .drawer .meta { color:#666; font-size:12px; }
-        .drawer .actions { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
-        .btn {
-            border:1px solid rgba(16,24,40,.10);
-            background: rgba(255,255,255,.70);
-            border-radius: 12px;
-            padding:6px 10px;
-            font-size:12px;
-            cursor:pointer;
-            transition: transform .15s cubic-bezier(.2,.8,.2,1), background .15s ease;
+        .life-header{
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:12px;
         }
-        .btn:hover { background: rgba(255,255,255,.92); transform: translateY(-1px); }
+        .life-title-main{ font-weight:800; font-size:15px; color:var(--text); }
+        .life-title-sub{ font-size:12px; color:var(--muted); margin-top:2px; }
+        .segmented{
+          display:inline-flex;
+          background: rgba(255,255,255,.7);
+          border:1px solid var(--border);
+          border-radius:999px;
+          padding:3px;
+          gap:4px;
+        }
+        .seg-btn{
+          border:none;
+          padding:6px 12px;
+          border-radius:999px;
+          font-size:12px;
+          color:var(--text-2);
+          background:transparent;
+          cursor:pointer;
+          transition: all .18s ease;
+        }
+        .seg-btn.active{
+          background: #111827;
+          color: #fff;
+          box-shadow: 0 8px 18px rgba(17,24,39,.18);
+        }
+        .life-body{
+          display:grid;
+          grid-template-columns: 2.1fr 1fr;
+          gap:14px;
+        }
+        #bubble-wrap{
+          width:100%;
+          height:380px;
+          border-radius:18px;
+          background:rgba(255,255,255,.66);
+          border:1px solid rgba(16,24,40,.08);
+          position:relative;
+          overflow:hidden;
+        }
+        .life-panel{
+          display:flex;
+          flex-direction:column;
+          gap:10px;
+        }
+        .panel-search input{
+          width:100%;
+          padding:10px 12px;
+          border-radius:12px;
+          border:1px solid var(--border);
+          background: rgba(255,255,255,.8);
+          font-size:12px;
+        }
+        .panel-filters{ display:flex; gap:8px; flex-wrap:wrap; }
+        .chip-btn{
+          border:1px solid var(--border);
+          background:rgba(255,255,255,.78);
+          padding:4px 10px;
+          border-radius:999px;
+          font-size:12px;
+          color:var(--text-2);
+          cursor:pointer;
+          transition: all .16s ease;
+        }
+        .chip-btn.active{
+          background:#111827;
+          color:#fff;
+          border-color:#111827;
+        }
+        .life-list{
+          flex:1;
+          overflow:auto;
+          max-height:210px;
+          display:flex;
+          flex-direction:column;
+          gap:8px;
+          padding-right:4px;
+        }
+        .list-item{
+          border:1px solid var(--border);
+          background:rgba(255,255,255,.75);
+          border-radius:14px;
+          padding:10px 12px;
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:10px;
+          cursor:pointer;
+          transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+          position:relative;
+        }
+        .list-item:hover{
+          transform: translateY(-1px);
+          box-shadow: 0 10px 22px rgba(16,24,40,.12);
+        }
+        .list-item.selected{
+          border-color: rgba(17,24,39,.4);
+          background: rgba(17,24,39,.06);
+        }
+        .list-item:before{
+          content:"";
+          position:absolute;
+          left:0;
+          top:10px;
+          bottom:10px;
+          width:3px;
+          border-radius:999px;
+          background: rgba(17,24,39,.15);
+        }
+        .list-item.selected:before{ background:#111827; }
+        .list-title{ font-weight:800; font-size:13px; color:var(--text); }
+        .list-sub{ font-size:12px; color:var(--muted); margin-top:2px; }
+        .list-badge{
+          font-size:11px;
+          padding:2px 8px;
+          border-radius:999px;
+          border:1px solid rgba(16,24,40,.10);
+          background: rgba(255,255,255,.65);
+        }
+        .badge-red{ border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.12); color:#b91c1c; }
+        .badge-yellow{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.12); color:#92400e; }
+        .badge-green{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); color:#166534; }
+        .pin-mark{
+          display:inline-flex;
+          align-items:center;
+          gap:4px;
+          font-size:11px;
+          color:#111827;
+        }
+        .life-detail{
+          border:1px solid var(--border);
+          background: rgba(255,255,255,.92);
+          border-radius:16px;
+          box-shadow: var(--shadow-1);
+          padding:12px;
+          display:flex;
+          flex-direction:column;
+          gap:8px;
+          transition: all .18s ease;
+        }
+        .detail-title{ font-weight:800; font-size:14px; color:var(--text); }
+        .detail-meta{ font-size:12px; color:var(--muted); line-height:1.5; }
+        .detail-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+        .btn{
+          border:1px solid rgba(16,24,40,.12);
+          border-radius:12px;
+          padding:6px 10px;
+          font-size:12px;
+          cursor:pointer;
+          transition: transform .15s cubic-bezier(.2,.8,.2,1), background .15s ease;
+        }
+        .btn:hover{ transform: translateY(-1px); }
+        .btn.ghost{ background: rgba(255,255,255,.7); color:var(--text); }
+        .btn.primary{ background:#111827; color:#fff; border-color:#111827; }
+        .tip{
+          position:absolute; pointer-events:none; opacity:0;
+          background: rgba(0,0,0,.78); color:#fff; padding:10px 12px;
+          border-radius:12px; font-size:12px; line-height:1.35;
+          transform: translate(-50%, -110%);
+          transition: opacity .12s ease;
+          white-space: nowrap;
+        }
         </style>
 
         <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
         <script>
         const data = __DATA_JSON__;
-
         const wrap = document.getElementById("bubble-wrap");
+        const listEl = document.getElementById("life-list");
+        const detailEl = document.getElementById("life-detail");
+        const searchEl = document.getElementById("life-search");
+        const filterButtons = document.querySelectorAll(".chip-btn");
+        const modeButtons = document.querySelectorAll(".seg-btn");
 
-        // 用可变尺寸（关键：不要 const W = ... || 900 固死）
         let W = wrap.getBoundingClientRect().width || 900;
-        let H = wrap.getBoundingClientRect().height || 360;
+        let H = wrap.getBoundingClientRect().height || 380;
+        let selectedId = null;
+        let activeFilter = "all";
+        const pinnedIds = new Set();
 
         const tip = document.createElement("div");
         tip.className = "tip";
         wrap.appendChild(tip);
 
-        const drawer = document.createElement("div");
-        drawer.className = "drawer";
-        drawer.innerHTML = `
-            <div class="title">点击一个泡泡</div>
-            <div class="meta">查看保质期/数量/建议操作</div>
-            <div class="actions"></div>
-        `;
-        wrap.appendChild(drawer);
-
+        function groupFromDays(days){
+          if (days <= 2) return 0;
+          if (days <= 5) return 1;
+          return 2;
+        }
+        function tagFromDays(days){
+          if (days <= 2) return {label:"紧急", cls:"badge-red"};
+          if (days <= 5) return {label:"临期", cls:"badge-yellow"};
+          return {label:"新鲜", cls:"badge-green"};
+        }
         function lifeToColor(life){
-            const hue = Math.max(0, Math.min(120, life * 1.2));
-            return `hsl(${hue}, 85%, 78%)`;
+          const hue = Math.max(0, Math.min(120, life * 1.2));
+          return `hsl(${hue}, 85%, 78%)`;
         }
         function lifeToStroke(life){
-            const hue = Math.max(0, Math.min(120, life * 1.2));
-            return `hsl(${hue}, 85%, 42%)`;
+          const hue = Math.max(0, Math.min(120, life * 1.2));
+          return `hsl(${hue}, 85%, 42%)`;
         }
 
-        // ====== SVG：用 viewBox + width:100%，避免固定像素宽导致留白 ======
-        const svg = d3.select(wrap).append("svg")
-            .style("width", "100%")
-            .style("height", H + "px")
-            .attr("viewBox", `0 0 ${W} ${H}`)
-            .attr("preserveAspectRatio", "xMidYMid meet");
-
-        const bg = svg.append("g").attr("class","bg");
-        bg.lower();
-
-        const g = svg.append("g");
-
-        // ====== 1) 聚类分桶规则（按 days 分 3 组）======
-        function groupFromDays(days){
-            if (days <= 2) return 0;   // 紧急
-            if (days <= 5) return 1;   // 临期
-            return 2;                  // 新鲜
-        }
-
-        // ====== 2) 节点初始化 + group ======
         const nodes = data.map(d => Object.assign(d, {
-            r: d.r || 34,
-            group: groupFromDays(+d.days || 0),
-            x: W/2 + (Math.random()-0.5)*40,
-            y: H/2 + (Math.random()-0.5)*40
+          r: d.r || 34,
+          group: groupFromDays(+d.days || 0),
+          x: W/2 + (Math.random()-0.5)*40,
+          y: H/2 + (Math.random()-0.5)*40
         }));
 
-        // ====== 3) 三列布局：动态计算 centers + 背景（可重算）======
+        const svg = d3.select(wrap).append("svg")
+          .style("width", "100%")
+          .style("height", H + "px")
+          .attr("viewBox", `0 0 ${W} ${H}`)
+          .attr("preserveAspectRatio", "xMidYMid meet");
+
+        const bg = svg.append("g").attr("class","bg");
+        bg.style("transition", "opacity .3s ease");
+        const g = svg.append("g");
+
         const margin = 16;
-        const gap = 14; // 三列之间的间隔（让分区更“卡片化”）
+        const gap = 14;
+        let centers = [];
+        let floatCenter = { x: W/2, y: H/2 };
+        let currentMode = localStorage.getItem("life_mode") || "cluster";
 
         function computeCenters() {
-            W = wrap.getBoundingClientRect().width || W;
-            H = wrap.getBoundingClientRect().height || H;
-
-            const colW = (W - margin * 2 - gap * 2) / 3;
-
-            const centers = [
+          W = wrap.getBoundingClientRect().width || W;
+          H = wrap.getBoundingClientRect().height || H;
+          const colW = (W - margin * 2 - gap * 2) / 3;
+          const colCenters = [
             { title: "🔥 紧急（≤2天）",  x: margin + colW * 0.5,              y: H/2 },
             { title: "⏳ 临期（3–5天）", x: margin + (colW + gap) + colW*0.5,  y: H/2 },
             { title: "✅ 新鲜（>5天）",  x: margin + 2*(colW+gap) + colW*0.5,  y: H/2 }
-            ];
-            return { centers, colW };
+          ];
+          return { colCenters, colW };
         }
 
         function renderBackground() {
-            const { centers, colW } = computeCenters();
+          const { colCenters, colW } = computeCenters();
+          centers = colCenters;
+          svg.attr("viewBox", `0 0 ${W} ${H}`);
+          svg.style("height", H + "px");
 
-            // 更新 SVG 坐标系，确保铺满当前真实宽度
-            svg.attr("viewBox", `0 0 ${W} ${H}`);
-            svg.style("height", H + "px");
-
-            // 背景 rect
-            bg.selectAll("rect")
+          bg.selectAll("rect")
             .data(centers)
             .join("rect")
             .attr("x", (d, i) => margin + i * (colW + gap))
@@ -419,13 +602,12 @@ if expiring_data:
             .attr("height", H - 20)
             .attr("rx", 18)
             .attr("fill", (d, i) => [
-                "rgba(255,99,71,0.12)",   // 紧急：红
-                "rgba(255,193,7,0.12)",   // 临期：黄
-                "rgba(76,175,80,0.12)"    // 新鲜：绿
+              "rgba(255,99,71,0.12)",
+              "rgba(255,193,7,0.12)",
+              "rgba(76,175,80,0.12)"
             ][i]);
 
-            // 标题 text
-            bg.selectAll("text")
+          bg.selectAll("text")
             .data(centers)
             .join("text")
             .attr("x", d => d.x)
@@ -435,161 +617,253 @@ if expiring_data:
             .style("font-size", "12px")
             .style("fill", "#444")
             .text(d => d.title);
-
-            bg.lower();
-            return centers;
+          bg.lower();
         }
 
-        let centers = renderBackground();
+        renderBackground();
 
-        let selectedId = null;
-
-        // ====== 节点渲染 ======
         const node = g.selectAll("g.node")
-            .data(nodes, d => d.id)
-            .join("g")
-            .attr("class","node")
-            .style("cursor","pointer")
-            .call(
+          .data(nodes, d => d.id)
+          .join("g")
+          .attr("class","node")
+          .style("cursor","pointer")
+          .call(
             d3.drag()
-                .on("start", (event, d) => {
+              .on("start", (event, d) => {
                 if (!event.active) sim.alphaTarget(0.25).restart();
                 d.fx = d.x; d.fy = d.y;
-                })
-                .on("drag", (event, d) => {
+              })
+              .on("drag", (event, d) => {
                 d.fx = event.x; d.fy = event.y;
-                })
-                .on("end", (event, d) => {
+              })
+              .on("end", (event, d) => {
                 if (!event.active) sim.alphaTarget(0);
                 d.fx = null; d.fy = null;
-                })
-            )
-            .on("mousemove", (event, d) => {
+              })
+          )
+          .on("mousemove", (event, d) => {
             tip.style.left = event.offsetX + "px";
             tip.style.top  = event.offsetY + "px";
             tip.style.opacity = 1;
-            tip.innerHTML = `
-                <b>${d.name}</b><br/>
-                生命值：${d.life}%<br/>
-                剩余：${d.days} 天
-            `;
-            })
-            .on("mouseleave", () => {
-            tip.style.opacity = 0;
-            })
-            .on("click", (event, d) => {
-            selectedId = d.id;
-            node.select("circle").attr("stroke-width", x => x.id===selectedId ? 4 : 1.2);
-
-            drawer.classList.add("show");
-            drawer.querySelector(".title").textContent = d.name;
-            drawer.querySelector(".meta").innerHTML = `
-                生命值：<b>${d.life}%</b> | 剩余 <b>${d.days}</b> 天<br/>
-                数量：<b>${(Number.isFinite(+d.qty) ? (+d.qty).toFixed(1) : d.qty)}</b> ${d.unit || ""}<br/>
-                到期日：${d.expire_date || "未知"}
-            `;
-
-            const actions = drawer.querySelector(".actions");
-            actions.innerHTML = "";
-            const mk = (label, onClick) => {
-                const btn = document.createElement("button");
-                btn.className = "btn";
-                btn.textContent = label;
-                btn.onclick = onClick;
-                actions.appendChild(btn);
-            };
-
-            mk("📋 复制食材名", () => navigator.clipboard.writeText(d.name));
-            mk("⭐ 设为优先消耗", () => alert("MVP：已标记（你可后续接 API 写入事件）"));
-            mk("✅ 关闭", () => drawer.classList.remove("show"));
-            });
+            tip.innerHTML = `<b>${d.name}</b><br/>生命值：${d.life}%<br/>剩余：${d.days} 天`;
+          })
+          .on("mouseleave", () => { tip.style.opacity = 0; })
+          .on("click", (event, d) => selectNode(d.id, true));
 
         node.append("circle")
-            .attr("r", d => d.r)
-            .attr("fill", d => lifeToColor(d.life))
-            .attr("stroke", d => lifeToStroke(d.life))
-            .attr("stroke-width", 1.2)
-            .attr("filter","drop-shadow(0px 4px 6px rgba(0,0,0,.10))");
+          .attr("r", d => d.r)
+          .attr("fill", d => lifeToColor(d.life))
+          .attr("stroke", d => lifeToStroke(d.life))
+          .attr("stroke-width", 1.2)
+          .attr("filter","drop-shadow(0px 4px 6px rgba(0,0,0,.10))");
+
+        node.append("circle")
+          .attr("class", "pin-dot")
+          .attr("r", 5)
+          .attr("cx", d => d.r - 6)
+          .attr("cy", d => -d.r + 6)
+          .attr("fill", "#111827")
+          .attr("opacity", 0);
 
         node.append("text")
-            .attr("text-anchor","middle")
-            .attr("dy","-0.2em")
-            .style("font-weight",700)
-            .style("font-size","12px")
-            .text(d => d.name.length>6 ? d.name.slice(0,6)+"…" : d.name);
+          .attr("text-anchor","middle")
+          .attr("dy","-0.2em")
+          .style("font-weight",700)
+          .style("font-size","12px")
+          .text(d => d.name.length>6 ? d.name.slice(0,6)+"…" : d.name);
 
         node.append("text")
-            .attr("text-anchor","middle")
-            .attr("dy","1.2em")
-            .style("font-size","11px")
-            .style("fill","#555")
-            .text(d => `生命值 ${d.life}%`);
+          .attr("text-anchor","middle")
+          .attr("dy","1.2em")
+          .style("font-size","11px")
+          .style("fill","#555")
+          .text(d => `生命值 ${d.life}%`);
 
-        // ====== 5) 核心：forceX 按 group 吸到各自列中心 + 防重叠 ======
         const sim = d3.forceSimulation(nodes)
-            .force("x", d3.forceX(d => centers[d.group].x).strength(0.18))
-            .force("y", d3.forceY(d => centers[d.group].y).strength(0.08))
-            .force("charge", d3.forceManyBody().strength(-10))
-            .force("collide", d3.forceCollide().radius(d => d.r + 6).iterations(2))
-            .alpha(1)
-            .alphaDecay(0.06)
-            .on("tick", () => {
+          .force("x", d3.forceX(d => centers[d.group].x).strength(0.18))
+          .force("y", d3.forceY(d => centers[d.group].y).strength(0.08))
+          .force("charge", d3.forceManyBody().strength(-10))
+          .force("collide", d3.forceCollide().radius(d => d.r + 6).iterations(2))
+          .alpha(1)
+          .alphaDecay(0.06)
+          .on("tick", () => {
             nodes.forEach(d => {
-                d.x = Math.max(d.r, Math.min(W - d.r, d.x));
-                d.y = Math.max(d.r, Math.min(H - d.r, d.y));
+              d.x = Math.max(d.r, Math.min(W - d.r, d.x));
+              d.y = Math.max(d.r, Math.min(H - d.r, d.y));
             });
             node.attr("transform", d => `translate(${d.x},${d.y})`);
-            });
+          });
 
-        // ====== 关键：监听容器 resize，重算三列并让仿真重新吸过去 ======
-        const ro = new ResizeObserver(() => {
-            centers = renderBackground();
+        function applyMode(mode) {
+          currentMode = mode;
+          localStorage.setItem("life_mode", mode);
+          modeButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.mode === mode));
+          if (mode === "cluster") {
+            bg.style("opacity", 1);
             sim.force("x", d3.forceX(d => centers[d.group].x).strength(0.18));
             sim.force("y", d3.forceY(d => centers[d.group].y).strength(0.08));
-            sim.alpha(0.9).restart();
+            sim.force("charge", d3.forceManyBody().strength(-10));
+          } else {
+            bg.style("opacity", 0);
+            sim.force("x", d3.forceX(() => floatCenter.x).strength(0.05));
+            sim.force("y", d3.forceY(() => floatCenter.y).strength(0.05));
+            sim.force("charge", d3.forceManyBody().strength(-6));
+          }
+          sim.alpha(0.8).restart();
+        }
+
+        function updatePins() {
+          node.select(".pin-dot").attr("opacity", d => (pinnedIds.has(d.id) ? 1 : 0));
+        }
+
+        function updateSelection() {
+          node.select("circle").attr("stroke-width", d => (d.id === selectedId ? 3.5 : 1.2));
+          const items = listEl.querySelectorAll(".list-item");
+          items.forEach(item => item.classList.toggle("selected", item.dataset.id === selectedId));
+        }
+
+        function renderList() {
+          const keyword = (searchEl.value || "").trim().toLowerCase();
+          const filtered = nodes.filter(d => {
+            if (keyword && !d.name.toLowerCase().includes(keyword)) return false;
+            if (activeFilter === "urgent") return d.days <= 2;
+            if (activeFilter === "soon") return d.days > 2 && d.days <= 5;
+            if (activeFilter === "fresh") return d.days > 5;
+            return true;
+          });
+          listEl.innerHTML = "";
+          filtered
+            .sort((a, b) => a.days - b.days)
+            .forEach(d => {
+              const tag = tagFromDays(d.days);
+              const row = document.createElement("div");
+              row.className = "list-item";
+              row.dataset.id = d.id;
+              row.innerHTML = `
+                <div>
+                  <div class="list-title">${d.name}</div>
+                  <div class="list-sub">剩余 ${d.days} 天 · ${Number.isFinite(+d.qty) ? (+d.qty).toFixed(1) : d.qty} ${d.unit || ""}</div>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+                  <span class="list-badge ${tag.cls}">${tag.label}</span>
+                  ${pinnedIds.has(d.id) ? '<span class="pin-mark">📌 优先</span>' : ""}
+                </div>
+              `;
+              row.addEventListener("click", () => {
+                selectNode(d.id, true);
+                pulseNode(d.id);
+              });
+              listEl.appendChild(row);
+            });
+          updateSelection();
+        }
+
+        function pulseNode(id) {
+          const target = node.filter(d => d.id === id);
+          target.select("circle")
+            .transition().duration(120)
+            .attr("r", d => d.r * 1.08)
+            .transition().duration(160)
+            .attr("r", d => d.r);
+        }
+
+        function selectNode(id, scrollList = false) {
+          const d = nodes.find(n => n.id === id);
+          if (!d) return;
+          selectedId = id;
+          updateSelection();
+          detailEl.querySelector(".detail-title").textContent = d.name;
+          detailEl.querySelector(".detail-meta").innerHTML = `
+            生命值：<b>${d.life}%</b> | 剩余 <b>${d.days}</b> 天<br/>
+            数量：<b>${Number.isFinite(+d.qty) ? (+d.qty).toFixed(1) : d.qty}</b> ${d.unit || ""}<br/>
+            到期日：${d.expire_date || "未知"}
+          `;
+          if (scrollList) {
+            const row = listEl.querySelector(`[data-id="${id}"]`);
+            if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }
+        }
+
+        detailEl.addEventListener("click", (event) => {
+          const action = event.target?.dataset?.action;
+          if (!action || !selectedId) return;
+          const d = nodes.find(n => n.id === selectedId);
+          if (!d) return;
+          if (action === "copy") {
+            navigator.clipboard.writeText(d.name);
+          }
+          if (action === "pin") {
+            if (pinnedIds.has(d.id)) {
+              pinnedIds.delete(d.id);
+            } else {
+              pinnedIds.add(d.id);
+            }
+            renderList();
+            updatePins();
+          }
+          if (action === "menu") {
+            window.parent.location.href = "pages/4_🍽️_菜单.py";
+          }
         });
+
+        filterButtons.forEach(btn => {
+          btn.addEventListener("click", () => {
+            activeFilter = btn.dataset.filter;
+            filterButtons.forEach(b => b.classList.toggle("active", b === btn));
+            renderList();
+          });
+        });
+        searchEl.addEventListener("input", renderList);
+        modeButtons.forEach(btn => btn.addEventListener("click", () => applyMode(btn.dataset.mode)));
+
+        function handleResize() {
+          renderBackground();
+          floatCenter = { x: W / 2, y: H / 2 };
+          if (currentMode === "cluster") {
+            sim.force("x", d3.forceX(d => centers[d.group].x).strength(0.18));
+            sim.force("y", d3.forceY(d => centers[d.group].y).strength(0.08));
+          } else {
+            sim.force("x", d3.forceX(() => floatCenter.x).strength(0.05));
+            sim.force("y", d3.forceY(() => floatCenter.y).strength(0.05));
+          }
+          sim.alpha(0.8).restart();
+        }
+
+        const ro = new ResizeObserver(handleResize);
         ro.observe(wrap);
 
-        // 首帧再补一枪（防止初次宽度读到 0）
+        setInterval(() => {
+          if (currentMode === "float") {
+            floatCenter = {
+              x: W / 2 + (Math.random() - 0.5) * 40,
+              y: H / 2 + (Math.random() - 0.5) * 30,
+            };
+            sim.alpha(0.6).restart();
+          }
+        }, 1200);
+
         requestAnimationFrame(() => {
-            centers = renderBackground();
-            sim.force("x", d3.forceX(d => centers[d.group].x).strength(0.18));
-            sim.force("y", d3.forceY(d => centers[d.group].y).strength(0.08));
-            sim.alpha(0.9).restart();
+          handleResize();
+          renderList();
+          applyMode(currentMode);
+          filterButtons[0].classList.add("active");
         });
         </script>
         """
-        components.html(html.replace("__DATA_JSON__", data_json), height=380)
+        components.html(html.replace("__DATA_JSON__", data_json), height=520)
         st.markdown("</div>", unsafe_allow_html=True)
 
     with right:
-        # 右侧行动面板：今日优先消耗（Top 6）
-        urgent = sorted(nodes, key=lambda x: x["days"])[:6]
-        st.markdown("<div class='card'><div class='card-title'>📌 今日优先消耗 <span class='muted'>Top 6</span></div>", unsafe_allow_html=True)
-
-        for u in urgent:
-            if u["days"] <= 2:
-                badge = "red"
-                tag = "紧急"
-            elif u["days"] <= 5:
-                badge = "yellow"
-                tag = "临期"
-            else:
-                badge = "green"
-                tag = "新鲜"
-            md_html(f"""
-            <div class="row">
-              <div>
-                <div style="font-weight:800;color:rgba(17,24,39,.92);">{u["name"]}</div>
-                <div class="muted">剩余 {u["days"]} 天 · {fmt_qty(u["qty"], u["unit"])}</div>
+        md_html(
+            """
+            <div class="card">
+              <div class="card-title">📌 今日优先消耗 <span class="muted">与左侧联动</span></div>
+              <div class="muted">
+                右侧列表与详情已融合在气泡组件内，点击泡泡或列表即可联动。
               </div>
-              <div class="badge {badge}">{tag}</div>
             </div>
-            """)
-
-        st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
-        st.markdown("<div class='muted'>建议：先处理紧急/临期 → 再做菜单组合。</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+            """
+        )
 
     
 else:
