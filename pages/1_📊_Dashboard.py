@@ -281,9 +281,9 @@ if expiring_data:
     data_json = json.dumps(nodes, ensure_ascii=False)
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
 
-    left, right = st.columns([2.2, 1], gap="large")
+    core_left, core_right = st.columns([3.2, 1.4], gap="large")
 
-    with left:
+    with core_left:
         st.markdown(
             "<div class='card'><div class='card-title'>🥗 食材生命体征 <span class='muted'>聚类 / 自由漂浮 · 三向联动</span></div>",
             unsafe_allow_html=True,
@@ -323,6 +323,7 @@ if expiring_data:
                   <button class="btn ghost" data-action="pin">⭐ 标记优先消耗</button>
                   <button class="btn primary" data-action="menu">🍽️ 建议做菜</button>
                 </div>
+                <div class="detail-hint muted">提示：请在顶部导航进入菜单页。</div>
               </div>
             </div>
           </div>
@@ -382,7 +383,7 @@ if expiring_data:
         }
         #bubble-wrap{
           width:100%;
-          height:380px;
+          height: var(--bubbleH);
           border-radius:18px;
           background:rgba(255,255,255,.66);
           border:1px solid rgba(16,24,40,.08);
@@ -393,6 +394,8 @@ if expiring_data:
           display:flex;
           flex-direction:column;
           gap:10px;
+          height: var(--bubbleH);
+          min-height: 0;
         }
         .panel-search input{
           width:100%;
@@ -421,7 +424,8 @@ if expiring_data:
         .life-list{
           flex:1;
           overflow:auto;
-          max-height:210px;
+          min-height: 0;
+          max-height: none;
           display:flex;
           flex-direction:column;
           gap:8px;
@@ -492,6 +496,7 @@ if expiring_data:
         .detail-title{ font-weight:800; font-size:14px; color:var(--text); }
         .detail-meta{ font-size:12px; color:var(--muted); line-height:1.5; }
         .detail-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+        .detail-hint{ font-size:12px; color:var(--muted); }
         .btn{
           border:1px solid rgba(16,24,40,.12);
           border-radius:12px;
@@ -524,7 +529,7 @@ if expiring_data:
         const modeButtons = document.querySelectorAll(".seg-btn");
 
         let W = wrap.getBoundingClientRect().width || 900;
-        let H = wrap.getBoundingClientRect().height || 380;
+        let H = wrap.getBoundingClientRect().height || 520;
         let selectedId = null;
         let activeFilter = "all";
         const pinnedIds = new Set();
@@ -802,7 +807,8 @@ if expiring_data:
             updatePins();
           }
           if (action === "menu") {
-            window.parent.location.href = "pages/4_🍽️_菜单.py";
+            const hint = detailEl.querySelector(".detail-hint");
+            if (hint) hint.textContent = "请在顶部导航进入菜单页（菜单页）。";
           }
         });
 
@@ -850,21 +856,32 @@ if expiring_data:
         });
         </script>
         """
-        components.html(html.replace("__DATA_JSON__", data_json), height=520)
+        components.html(
+            html.replace("__DATA_JSON__", data_json).replace(
+                "</style>", "\n:root{ --bubbleH: clamp(440px, 55vh, 640px); }\n</style>"
+            ),
+            height=700,
+        )
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with right:
+    with core_right:
         md_html(
             """
             <div class="card">
-              <div class="card-title">📌 今日优先消耗 <span class="muted">与左侧联动</span></div>
-              <div class="muted">
-                右侧列表与详情已融合在气泡组件内，点击泡泡或列表即可联动。
+              <div class="card-title">⚡ 今日建议 <span class="muted">快捷操作</span></div>
+              <div class="muted" style="margin-bottom:12px;">
+                聚焦临期食材，建议先生成菜单或快速补货。
+              </div>
+              <div style="display:grid;gap:8px;">
+                <a href="/pages/4_🍽️_菜单.py">🍽️ 生成菜单</a>
+                <a href="/pages/5_🧾_购物清单.py">🧾 查看购物清单</a>
+                <a href="/pages/2_📦_库存.py">📦 查看库存</a>
               </div>
             </div>
             """
         )
 
+    st.markdown("<div style='height:24px;'></div>", unsafe_allow_html=True)
     
 else:
     st.balloons() # 如果库存非常健康，给点奖励
