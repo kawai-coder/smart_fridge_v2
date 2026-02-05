@@ -21,22 +21,20 @@ st.markdown(
     """
 <style>
 :root{
-  --bg1:#f7f7f8;
-  --bg2:#eef0f3;
-  --card: rgba(255,255,255,0.78);
-  --card2: rgba(255,255,255,0.92);
-  --stroke: rgba(15,23,42,0.12);
-  --text: rgba(15,23,42,0.92);
-  --muted: rgba(15,23,42,0.62);
-  --shadow: 0 12px 36px rgba(15,23,42,0.10);
-  --shadow2: 0 10px 24px rgba(15,23,42,0.10);
+  --s-1: 8px; --s-2: 12px; --s-3: 16px; --s-4: 24px; --s-5: 32px;
+  --r-lg: 18px; --r-md: 14px; --r-sm: 10px;
+  --surface-1: rgba(255,255,255,.86);
+  --surface-2: rgba(255,255,255,.66);
+  --border: rgba(16,24,40,.08);
+  --text: rgba(17,24,39,.92);
+  --muted: rgba(17,24,39,.62);
+  --shadow: 0 12px 36px rgba(16,24,40,.10);
+  --shadow2: 0 10px 24px rgba(16,24,40,.10);
   --radius: 22px;
 }
 
 .stApp{
-  background: radial-gradient(1100px 560px at 15% 10%, rgba(99,102,241,0.10), transparent 60%),
-              radial-gradient(900px 520px at 85% 15%, rgba(56,189,248,0.08), transparent 60%),
-              linear-gradient(180deg, var(--bg1), var(--bg2));
+  background: radial-gradient(1200px 600px at 10% 0%, #f3f6ff 0%, #ffffff 40%, #ffffff 100%);
   color: var(--text);
 }
 
@@ -54,7 +52,7 @@ footer{ visibility: hidden; }
 
 /* --- Hero --- */
 .hero{
-  border: 1px solid var(--stroke);
+  border: 1px solid var(--border);
   background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(255,255,255,0.78));
   border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -86,7 +84,7 @@ footer{ visibility: hidden; }
   gap:8px;
   padding: 6px 10px;
   border-radius: 999px;
-  border: 1px solid var(--stroke);
+  border: 1px solid var(--border);
   background: rgba(255,255,255,0.78);
   color: var(--muted);
   font-size: 0.85rem;
@@ -95,7 +93,7 @@ footer{ visibility: hidden; }
 /* --- Fridge layout --- */
 .fridge{
   border-radius: calc(var(--radius) + 6px);
-  border: 1px solid var(--stroke);
+  border: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.70));
   box-shadow: var(--shadow);
   overflow: hidden;
@@ -141,7 +139,7 @@ footer{ visibility: hidden; }
 
 /* --- Cards --- */
 .inv-card{
-  border: 1px solid rgba(15,23,42,0.10);
+  border: 1px solid rgba(16,24,40,0.10);
   background: rgba(255,255,255,0.84);
   border-radius: 18px;
   box-shadow: var(--shadow2);
@@ -203,7 +201,7 @@ footer{ visibility: hidden; }
 
 /* --- Detail panel --- */
 .panel{
-  border: 1px solid var(--stroke);
+  border: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.74));
   border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -252,6 +250,18 @@ div.stButton > button[kind="primary"]:hover{
 div[data-baseweb="input"] input,
 div[data-baseweb="select"] input{
   border-radius: 14px !important;
+}
+/* Sticky filter bar */
+.sticky-filter{
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  background: rgba(255,255,255,0.94);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s-3);
+  box-shadow: var(--shadow2);
+  margin-bottom: var(--s-3);
 }
 </style>
 """,
@@ -315,6 +325,10 @@ if "selected_batch" not in st.session_state:
     st.session_state.selected_batch = None
 if "view_mode" not in st.session_state:
     st.session_state.view_mode = "冰箱视图"
+if "consume_pending" not in st.session_state:
+    st.session_state.consume_pending = False
+if "discard_pending" not in st.session_state:
+    st.session_state.discard_pending = False
 
 
 # =========================
@@ -345,23 +359,25 @@ st.markdown(
 st.write("")
 
 # =========================
-# Filters + view switch
+# Filters + view switch (sticky)
 # =========================
-with st.sidebar:
-    st.markdown("### 视图与筛选")
+st.markdown('<div class="sticky-filter">', unsafe_allow_html=True)
+f1, f2, f3, f4 = st.columns([1.1, 1, 1, 1.2], gap="small")
+with f1:
     st.session_state.view_mode = st.radio(
         "视图",
         options=["冰箱视图", "表格视图"],
         index=0 if st.session_state.view_mode == "冰箱视图" else 1,
-        label_visibility="collapsed",
+        horizontal=True,
     )
-
+with f2:
     location = st.selectbox("位置", options=["", "fridge", "freezer", "pantry"], index=0)
+with f3:
     status = st.selectbox("状态", options=["", "in_stock", "consumed", "discarded"], index=0)
+with f4:
     keyword = st.text_input("搜索关键词", placeholder="比如：牛奶 / 鸡蛋 / 西红柿…")
-
-    st.markdown("---")
-    st.caption("提示：在「冰箱视图」点卡片的“查看详情”，右侧会出现可操作面板。")
+st.caption("提示：在「冰箱视图」点卡片的“查看详情”，右侧会出现可操作面板。")
+st.markdown("</div>", unsafe_allow_html=True)
 
 filters = {"location": location or None, "status": status or None, "keyword": keyword or None}
 response = api.list_batches(filters)
@@ -458,6 +474,9 @@ with main_col:
                     dl = _days_left(b.get("expire_date"))
                     badge_text, badge_cls = _freshness_badge(dl)
                     badge_html = _render_badge(badge_text, badge_cls)
+                    expiring_tag = ""
+                    if dl is not None and dl <= 3:
+                        expiring_tag = '<span class="badge badge-exp">临期提醒</span>'
                     name = b.get("item_name_snapshot") or "未命名食材"
                     qty = b.get("quantity")
                     unit = b.get("unit") or ""
@@ -472,6 +491,7 @@ with main_col:
     <div style="min-width:0;">
       <div class="inv-name">{name}</div>
       <div class="inv-meta">{status_label} · 来源 {source_label}</div>
+      {expiring_tag}
     </div>
     <div>{badge_html}</div>
   </div>
@@ -521,6 +541,9 @@ with main_col:
                 "source_type",
             ]
         ].copy()
+        display_df["临期标签"] = display_df["expire_date"].apply(
+            lambda x: "临期" if (_days_left(x) is not None and _days_left(x) <= 3) else ""
+        )
         display_df.rename(
             columns={
                 "batch_id": "批次",
@@ -531,6 +554,7 @@ with main_col:
                 "location": "位置",
                 "status": "状态",
                 "source_type": "来源",
+                "临期标签": "临期标签",
             },
             inplace=True,
         )
@@ -539,7 +563,7 @@ with main_col:
             display_df,
             use_container_width=True,
             num_rows="dynamic",
-            disabled=["批次", "食材", "单位", "状态", "来源"],
+            disabled=["批次", "食材", "单位", "状态", "来源", "临期标签"],
         )
 
         if st.button("保存编辑", type="primary"):
@@ -632,19 +656,30 @@ with detail_col:
     op1, op2 = st.columns(2, gap="medium")
 
     with op1:
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        st.markdown("**消耗食材**")
         consume_qty = st.number_input(
             "消耗数量",
             min_value=0.0,
             max_value=max(0.0, qty),
             step=0.5,
             help="会记录一条消耗事件（delta_quantity 为负）。",
+            key="consume_qty",
         )
         if st.button("确认消耗", type="primary", use_container_width=True):
-            api.consume_batch(selected, consume_qty, note="手动消耗（库存页）")
-            st.success("已记录消耗事件 ✅")
-            st.rerun()
+            st.session_state.consume_pending = True
+        if st.session_state.consume_pending:
+            st.warning("确认后将写入消耗事件，无法撤销。")
+            if st.button("✅ 我确认消耗", use_container_width=True, key="confirm_consume"):
+                api.consume_batch(selected, consume_qty, note="手动消耗（库存页）")
+                st.session_state.consume_pending = False
+                st.success("已记录消耗事件 ✅")
+                st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
     with op2:
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        st.markdown("**丢弃食材**")
         discard_qty = st.number_input(
             "丢弃数量",
             min_value=0.0,
@@ -655,9 +690,15 @@ with detail_col:
         )
         discard_reason = st.text_input("丢弃原因", placeholder="例如：变质 / 口感变差 / 包装破损…")
         if st.button("确认丢弃", use_container_width=True):
-            api.discard_batch(selected, discard_qty, reason=discard_reason)
-            st.success("已记录丢弃事件 ✅")
-            st.rerun()
+            st.session_state.discard_pending = True
+        if st.session_state.discard_pending:
+            st.warning("确认后将写入丢弃事件，无法撤销。")
+            if st.button("✅ 我确认丢弃", use_container_width=True, key="confirm_discard"):
+                api.discard_batch(selected, discard_qty, reason=discard_reason)
+                st.session_state.discard_pending = False
+                st.success("已记录丢弃事件 ✅")
+                st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
     st.write("")
     st.markdown("#### 事件历史")
